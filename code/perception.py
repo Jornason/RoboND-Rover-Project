@@ -1,21 +1,6 @@
 import numpy as np
 import cv2
 
-# Identify pixels above the threshold
-# Threshold of RGB > 160 does a nice job of identifying ground pixels only
-def color_thresh(img, rgb_thresh=(160, 160, 160)):
-    # Create an array of zeros same xy size as img, but single channel
-    color_select = np.zeros_like(img[:,:,0])
-    # Require that each pixel be above all three threshold values in RGB
-    # above_thresh will now contain a boolean array with "True"
-    # where threshold was met
-    above_thresh = (img[:,:,0] > rgb_thresh[0]) \
-                & (img[:,:,1] > rgb_thresh[1]) \
-                & (img[:,:,2] > rgb_thresh[2])
-    # Index the array of zeros with the boolean array and set to 1
-    color_select[above_thresh] = 1
-    # Return the binary image
-    return color_select
 
 # Define a function to convert from image coords to rover coords
 def rover_coords(binary_img):
@@ -69,12 +54,29 @@ def pix_to_world(xpix, ypix, xpos, ypos, yaw, world_size, scale):
     # Return the result
     return x_pix_world, y_pix_world
 
-#Find rock samples
-def find_rocks(img, levels=(110, 110, 50)):
 
-    rock_pix = (img[:,:,0] > levels[0]) \
-                & (img[:,:,1] > levels[1]) \
-                & (img[:,:,2] < levels[2])
+# Identify pixels above the threshold
+# Threshold of RGB > 160 does a nice job of identifying ground pixels only
+def color_thresh(img, rgb_thresh=(160, 160, 160)):
+    # Create an array of zeros same xy size as img, but single channel
+    color_select = np.zeros_like(img[:,:,0])
+    # Require that each pixel be above all three threshold values in RGB
+    # above_thresh will now contain a boolean array with "True"
+    # where threshold was met
+    above_thresh = (img[:,:,0] > rgb_thresh[0]) \
+                & (img[:,:,1] > rgb_thresh[1]) \
+                & (img[:,:,2] > rgb_thresh[2])
+    # Index the array of zeros with the boolean array and set to 1
+    color_select[above_thresh] = 1
+    # Return the binary image
+    return color_select
+
+#Find rock samples
+def find_rocks(img, low_thresh = (120, 110, 0), high_thresh = (205, 180, 70)):
+
+    rock_pix = (np.logical_and(img[:,:,0] >= low_thresh[0], img[:,:,0] <= high_thresh[0])) \
+                    &  (np.logical_and(img[:,:,1] >= low_thresh[1], img[:,:,1] <= high_thresh[1])) \
+                    &  (np.logical_and(img[:,:,2] >= low_thresh[2], img[:,:,2] <= high_thresh[2]))
 
     rock_map = np.zeros_like(img[:,:,0])
     rock_map[rock_pix] = 1
@@ -131,7 +133,7 @@ def perception_step(Rover):
 
     # 3) Apply color threshold to identify navigable terrain/obstacles/rock samples
     threshed_terrain = color_thresh(warped)
-    threshed_rock = find_rocks(warped, levels =(110,110,50))
+    threshed_rock = find_rocks(warped)
     threshed_obstacle = find_obstacles(warped)    
 
     # 4) Update Rover.vision_image (this will be displayed on left side of screen)
@@ -158,9 +160,15 @@ def perception_step(Rover):
     rock_x_world, rock_y_world = pix_to_world(rock_x, rock_y, xpos, ypos, yaw, world_size, scale)    
 
     # 7) Update Rover worldmap (to be displayed on right side of screen)
-    Rover.worldmap[y_world, x_world, 2] += 10
-    Rover.worldmap[rock_y_world, rock_x_world, 1] += 5
-    Rover.worldmap[obs_y_world, obs_x_world, 0] += 1
+    # Rover.worldmap[y_world, x_world, 2] += 10
+    # Rover.worldmap[rock_y_world, rock_x_world, 1] += 5
+    # Rover.worldmap[obs_y_world, obs_x_world, 0] += 1
+    
+    # Update worldmap if pitch and roll are close to 0  
+    if Rover.pitch < Rover.max_pitch and Rover.roll < Rover.max_roll:
+        Rover.worldmap[obs_y_world, obs_x_world, 0] += 1
+        Rover.worldmap[rock_y_world, rock_x_world, 1] += 1
+        Rover.worldmap[y_world, x_world, 2] += 1
 
     # 8) Convert rover-centric pixel positions to polar coordinates
     dist, angles = to_polar_coords(xpix, ypix)
@@ -168,8 +176,8 @@ def perception_step(Rover):
     Rover.nav_angles = angles
     #See if we can find rock samples
     #Warped for Rock Finding
-    if threshed_rock.any():
-
+    if threshed_rock.any(): 
+        print("Rock Found")
         rock_dist, rock_ang = to_polar_coords(rock_x, rock_y)
         rock_idx = np.argmin(rock_dist)
         rock_xcen = rock_x_world[rock_idx]
@@ -183,5 +191,6 @@ def perception_step(Rover):
     else:
         Rover.vision_image[:,:,1] = 0
         Rover.near_sample = 0
+
 
     return Rover

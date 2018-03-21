@@ -37,46 +37,54 @@ ground_truth_3d = np.dstack((ground_truth*0, ground_truth*255, ground_truth*0)).
 
 # Define RoverState() class to retain rover state parameters
 class RoverState():
-    def __init__(self):
-        self.start_time = None # To record the start time of navigation
-        self.total_time = None # To record total duration of naviagation
-        self.img = None # Current camera image
+    def __init__(self):        
+        # Rover properties
+        self.start_pos = None
         self.pos = None # Current position (x, y)
         self.yaw = None # Current yaw angle
         self.pitch = None # Current pitch angle
         self.roll = None # Current roll angle
         self.vel = None # Current velocity
-        self.steer = 0 # Current steering angle
+        self.steer = 0 # Current steering angle        
         self.throttle = 0 # Current throttle value
         self.brake = 0 # Current brake value
-        self.nav_angles = None # Angles of navigable terrain pixels
-        self.nav_dists = None # Distances of navigable terrain pixels
-        self.ground_truth = ground_truth_3d # Ground truth worldmap
-        self.mode = 'forward' # Current mode (can be forward or stop)
+        self.mode = 'start' # Current mode (can be start,forward, stop, seek, sample)
         self.throttle_set = 0.2 # Throttle setting when accelerating
+        self.throttle_seek = 0.1 # Throttle setting when seeking
         self.brake_set = 10 # Brake setting when braking
-        # The stop_forward and go_forward fields below represent total count
-        # of navigable terrain pixels.  This is a very crude form of knowing
-        # when you can keep going and when you should stop.  Feel free to
-        # get creative in adding new fields or modifying these!
+        # Maximum values
+        self.max_vel = 3 # Maximum velocity (meters/second)
+        self.max_pitch = 1
+        self.max_roll = 1
+        # Navigation
+        self.nav_angles = None # Angles of navigable terrain pixels
+        self.nav_dists = None # Distances of navigable terrain pixels   
         self.stop_forward = 50 # Threshold to initiate stopping
-        self.go_forward = 500 # Threshold to go forward again
-        self.max_vel = 2 # Maximum velocity (meters/second)
-        # Image output from perception step
-        # Update this image to display your intermediate analysis steps
-        # on screen in autonomous mode
-        self.vision_image = np.zeros((160, 320, 3), dtype=np.float) 
-        # Worldmap
-        # Update this image with the positions of navigable terrain
-        # obstacles and rock samples
-        self.worldmap = np.zeros((200, 200, 3), dtype=np.float) 
+        self.go_forward = 400 # Threshold to go forward again
+        self.stop_time = 0
+        self.max_time = 2000
+        self.p_pos = None
+        # Map
+        self.ground_truth = ground_truth_3d # Ground truth worldmap
+        self.worldmap = np.zeros((200, 200, 3), dtype=np.float)         
+        # Samples
         self.samples_pos = None # To store the actual sample positions
+        self.samples_pos_collected = None
+        self.min_dist_sample = 5
         self.samples_to_find = 0 # To store the initial count of samples
         self.samples_located = 0 # To store number of samples located on map
         self.samples_collected = 0 # To count the number of samples collected
         self.near_sample = 0 # Will be set to telemetry value data["near_sample"]
         self.picking_up = 0 # Will be set to telemetry value data["picking_up"]
         self.send_pickup = False # Set to True to trigger rock pickup
+        # Misc
+        self.start_time = None # To record the start time of navigation
+        self.total_time = None # To record total duration of naviagation
+        self.img = None # Current camera image
+        self.vision_image = np.zeros((160, 320, 3), dtype=np.float) 
+
+
+
 # Initialize our rover 
 Rover = RoverState()
 
